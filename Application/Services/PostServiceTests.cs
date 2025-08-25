@@ -134,6 +134,97 @@ namespace JsonPlaceholderApi.Tests.Application.Services
             Assert.Single(result);
             Assert.Equal(1, result.First().UserId);
         }
+
+        // =======================
+        // TESTES PARA UpdateAsync
+        // =======================
+
+        [Fact]
+        public async Task UpdateAsync_ShouldReturnUpdatedPost_WhenPostExists()
+        {
+            // Arrange
+            var existingPost = new Post { Id = 1, ExternalId = 101, Title = "Old Title", Body = "Old Body", UserId = 1 };
+            var updatedDto = new PostDto { Id = 101, Title = "New Title", Body = "New Body", UserId = 1 };
+
+            _postRepositoryMock.Setup(r => r.GetByIdAsync(1))
+                               .ReturnsAsync(existingPost);
+
+            _postRepositoryMock.Setup(r => r.UpdateAsync(existingPost))
+                               .Returns(Task.CompletedTask);
+
+            var service = new PostService(_postRepositoryMock.Object, new HttpClient(), _mapper);
+
+            // Act
+            var result = await service.UpdateAsync(1, updatedDto);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal("New Title", result.Title);
+            Assert.Equal("New Body", result.Body);
+            _postRepositoryMock.Verify(r => r.UpdateAsync(existingPost), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_ShouldReturnNull_WhenPostDoesNotExist()
+        {
+            // Arrange
+            _postRepositoryMock.Setup(r => r.GetByIdAsync(99))
+                               .ReturnsAsync((Post?)null);
+
+            var updatedDto = new PostDto { Id = 99, Title = "Any Title", Body = "Any Body", UserId = 1 };
+
+            var service = new PostService(_postRepositoryMock.Object, new HttpClient(), _mapper);
+
+            // Act
+            var result = await service.UpdateAsync(99, updatedDto);
+
+            // Assert
+            Assert.Null(result);
+            _postRepositoryMock.Verify(r => r.UpdateAsync(It.IsAny<Post>()), Times.Never);
+        }
+
+        // =======================
+        // TESTES PARA DeleteAsync
+        // =======================
+
+        [Fact]
+        public async Task DeleteAsync_ShouldReturnTrue_WhenPostExists()
+        {
+            // Arrange
+            var existingPost = new Post { Id = 1, ExternalId = 101, Title = "To delete", Body = "Body", UserId = 1 };
+
+            _postRepositoryMock.Setup(r => r.GetByIdAsync(1))
+                               .ReturnsAsync(existingPost);
+
+            _postRepositoryMock.Setup(r => r.DeleteAsync(existingPost.Id))
+                               .Returns(Task.CompletedTask);
+
+            var service = new PostService(_postRepositoryMock.Object, new HttpClient(), _mapper);
+
+            // Act
+            var result = await service.DeleteAsync(1);
+
+            // Assert
+            Assert.True(result);
+            _postRepositoryMock.Verify(r => r.DeleteAsync(existingPost.Id), Times.Once);
+        }
+
+        [Fact]
+        public async Task DeleteAsync_ShouldReturnFalse_WhenPostDoesNotExist()
+        {
+            // Arrange
+            _postRepositoryMock.Setup(r => r.GetByIdAsync(99))
+                               .ReturnsAsync((Post?)null);
+
+            var service = new PostService(_postRepositoryMock.Object, new HttpClient(), _mapper);
+
+            // Act
+            var result = await service.DeleteAsync(99);
+
+            // Assert
+            Assert.False(result);
+            _postRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<int>()), Times.Never);
+        }
     }
 
     // ================================
