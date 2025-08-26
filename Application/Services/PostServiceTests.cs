@@ -25,6 +25,7 @@ namespace JsonPlaceholderApi.Tests.Application.Services
                 cfg.CreateMap<PostDto, Post>()
                    .ForMember(dest => dest.Id, opt => opt.Ignore());
                 cfg.CreateMap<Post, PostDto>();
+                cfg.CreateMap<Post, PostDtoTable>().ReverseMap();
             });
             _mapper = config.CreateMapper();
         }
@@ -95,10 +96,11 @@ namespace JsonPlaceholderApi.Tests.Application.Services
         [Fact]
         public async Task GetAllPostsAsync_ReturnsAllPosts()
         {
+            // Arrange
             var posts = new List<Post>
             {
-                new Post { Id = 1, ExternalId = 1, Title = "Post 1", Body = "Body 1" },
-                new Post { Id = 2, ExternalId = 2, Title = "Post 2", Body = "Body 2" }
+                new Post { Id = 1, ExternalId = 1, UserId = 10, Title = "Post 1", Body = "Body 1" },
+                new Post { Id = 2, ExternalId = 2, UserId = 20, Title = "Post 2", Body = "Body 2" }
             };
 
             _postRepositoryMock.Setup(r => r.GetAllAsync())
@@ -106,9 +108,21 @@ namespace JsonPlaceholderApi.Tests.Application.Services
 
             var service = new PostService(_postRepositoryMock.Object, new HttpClient(), _mapper);
 
+            // Act
             var result = await service.GetAllPostsAsync();
 
-            Assert.Equal(2, result.Count());
+            // Assert
+            Assert.NotNull(result);
+            var resultList = result.ToList();
+            Assert.Equal(2, resultList.Count);
+
+            Assert.Equal(1, resultList[0].Id);
+            Assert.Equal(10, resultList[0].UserId);
+            Assert.Equal("Post 1", resultList[0].Title);
+
+            Assert.Equal(2, resultList[1].Id);
+            Assert.Equal(20, resultList[1].UserId);
+            Assert.Equal("Post 2", resultList[1].Title);
         }
 
         // =================================
@@ -118,6 +132,7 @@ namespace JsonPlaceholderApi.Tests.Application.Services
         [Fact]
         public async Task GetPostsByUserIdAsync_ReturnsFilteredPosts()
         {
+            // Arrange
             var posts = new List<Post>
             {
                 new Post { Id = 1, UserId = 1, ExternalId = 1, Title = "Post 1", Body = "Body 1" },
@@ -129,10 +144,15 @@ namespace JsonPlaceholderApi.Tests.Application.Services
 
             var service = new PostService(_postRepositoryMock.Object, new HttpClient(), _mapper);
 
+            // Act
             var result = await service.GetPostsByUserIdAsync(1);
 
+            // Assert
             Assert.Single(result);
-            Assert.Equal(1, result.First().UserId);
+            var post = result.First();
+            Assert.Equal(1, post.UserId);
+            Assert.Equal("Post 1", post.Title);
+            Assert.Equal("Body 1", post.Body);
         }
 
         // =======================
@@ -144,7 +164,7 @@ namespace JsonPlaceholderApi.Tests.Application.Services
         {
             // Arrange
             var existingPost = new Post { Id = 1, ExternalId = 101, Title = "Old Title", Body = "Old Body", UserId = 1 };
-            var updatedDto = new PostDto { Id = 101, Title = "New Title", Body = "New Body", UserId = 1 };
+            var updatedDto = new PostDtoTable { Id = 1, ExternalId = 101, Title = "New Title", Body = "New Body", UserId = 1 };
 
             _postRepositoryMock.Setup(r => r.GetByIdAsync(1))
                                .ReturnsAsync(existingPost);
@@ -161,6 +181,7 @@ namespace JsonPlaceholderApi.Tests.Application.Services
             Assert.NotNull(result);
             Assert.Equal("New Title", result.Title);
             Assert.Equal("New Body", result.Body);
+            Assert.Equal(101, result.ExternalId);
             _postRepositoryMock.Verify(r => r.UpdateAsync(existingPost), Times.Once);
         }
 
@@ -171,7 +192,7 @@ namespace JsonPlaceholderApi.Tests.Application.Services
             _postRepositoryMock.Setup(r => r.GetByIdAsync(99))
                                .ReturnsAsync((Post?)null);
 
-            var updatedDto = new PostDto { Id = 99, Title = "Any Title", Body = "Any Body", UserId = 1 };
+            var updatedDto = new PostDtoTable { Id = 99, ExternalId = 200, Title = "Any Title", Body = "Any Body", UserId = 1 };
 
             var service = new PostService(_postRepositoryMock.Object, new HttpClient(), _mapper);
 
